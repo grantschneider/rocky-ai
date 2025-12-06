@@ -11,6 +11,8 @@ load_dotenv()  # Load from .env if present (local dev only)
 
 app = FastAPI(title="Radiology Transcription Tool")
 
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() == "true"
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 
@@ -20,6 +22,8 @@ async def transcribe_audio(
     audio: UploadFile = File(...),
     backend: str = Form(default="openai-whisper"),
 ):
+    if MAINTENANCE_MODE:
+        return {"error": "Service is currently in maintenance mode"}
     suffix = Path(audio.filename).suffix or ".webm"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await audio.read()
@@ -117,6 +121,8 @@ if static_dir.exists():
 
 @app.get("/")
 async def root():
+    if MAINTENANCE_MODE:
+        return {"message": "Coming soon - currently in private beta"}
     index_path = static_dir / "index.html"
     if index_path.exists():
         return FileResponse(index_path)
