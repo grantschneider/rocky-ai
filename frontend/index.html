@@ -13,7 +13,18 @@
             padding: 20px;
             background: #f5f5f5;
         }
-        h1 { color: #333; }
+        h1 { color: #333; margin: 0; }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .header img {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+        }
         .card {
             background: white;
             border-radius: 8px;
@@ -21,266 +32,261 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .backend-select {
+        .controls {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .backend-btn {
-            padding: 10px 16px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            background: white;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .backend-btn:hover { border-color: #007bff; }
-        .backend-btn.selected {
-            border-color: #007bff;
-            background: #e7f1ff;
-        }
-        .backend-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .record-section {
-            display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
-            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         .btn {
-            padding: 12px 24px;
+            padding: 14px 32px;
             border: none;
-            border-radius: 6px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-record {
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+        .btn-start:hover { background: #218838; }
+        .btn-stop {
             background: #dc3545;
             color: white;
         }
-        .btn-record:hover { background: #c82333; }
-        .btn-record.recording {
-            animation: pulse 1s infinite;
-        }
-        .btn-primary {
-            background: #007bff;
-            color: white;
-        }
-        .btn-primary:hover { background: #0056b3; }
-        .btn-primary:disabled {
+        .btn-stop:hover { background: #c82333; }
+        .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        .status {
-            padding: 8px 12px;
-            border-radius: 4px;
+        .btn-clear {
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
             font-size: 14px;
         }
-        .status.recording { background: #ffe0e0; color: #c00; }
-        .status.processing { background: #fff3cd; color: #856404; }
-        .results {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+        .btn-clear:hover { background: #5a6268; }
+        .btn-copy {
+            padding: 10px 20px;
+            background: #17a2b8;
+            color: white;
+            font-size: 14px;
         }
-        @media (max-width: 700px) {
-            .results { grid-template-columns: 1fr; }
+        .btn-copy:hover { background: #138496; }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
         }
-        .result-card {
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 15px;
+        .status.listening {
+            background: #d4edda;
+            color: #155724;
+            animation: pulse 2s infinite;
         }
-        .result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
         }
-        .result-backend {
-            font-weight: 600;
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .transcript-container {
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+        }
+        .transcript {
+            font-size: 18px;
+            line-height: 1.8;
             color: #333;
-        }
-        .result-time {
-            font-size: 12px;
-            color: #666;
-        }
-        .result-text {
             white-space: pre-wrap;
-            line-height: 1.6;
-            color: #444;
         }
-        .result-error {
-            color: #dc3545;
+        .transcript .interim {
+            color: #888;
+            font-style: italic;
         }
-        .upload-section {
+        .transcript:empty::before {
+            content: "Start speaking to see transcription appear here...";
+            color: #aaa;
+            font-style: italic;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
             margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-        }
-        .upload-section input[type="file"] {
-            margin-right: 10px;
-        }
-        .compare-note {
-            font-size: 13px;
-            color: #666;
-            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-        <img src="/static/logo.png" alt="Logo" style="width: 64px; height: 64px; border-radius: 12px;">
+    <div class="header">
+        <img src="/static/logo.png" alt="Logo">
         <div>
-            <h1 style="margin: 0;">Radiology Transcription Tool</h1>
-            <p style="color: #666; margin: 5px 0 0 0;">Compare cloud speech-to-text services for medical dictation</p>
+            <h1>Radiology Transcription</h1>
+            <p style="color: #666; margin: 5px 0 0 0;">Real-time medical speech-to-text</p>
         </div>
     </div>
     
-    
-    
     <div class="card">
-        <h3>Record or Upload Audio</h3>
-        <div class="record-section">
-            <button class="btn btn-record" id="recordBtn">Start Recording</button>
-            <button class="btn btn-primary" id="transcribeBtn" disabled>Compare Transcriptions</button>
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn">Start Dictation</button>
+            <button class="btn btn-stop" id="stopBtn" disabled>Stop</button>
             <span class="status" id="status"></span>
         </div>
-        <div class="upload-section">
-            <input type="file" id="audioFile" accept="audio/*">
-            <span id="fileName"></span>
-        </div>
-        <audio id="audioPlayback" controls style="width: 100%; margin-top: 15px; display: none;"></audio>
     </div>
     
     <div class="card">
-        <h3>Results</h3>
-        <div class="results" id="results">
-            <p style="color: #666;">Record or upload audio and click Transcribe to see results.</p>
+        <div class="transcript-container">
+            <div class="transcript" id="transcript"></div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-copy" id="copyBtn">Copy Text</button>
+            <button class="btn btn-clear" id="clearBtn">Clear</button>
         </div>
     </div>
 
     <script>
+        let socket = null;
         let mediaRecorder = null;
-        let audioChunks = [];
-        let audioBlob = null;
-        let selectedBackends = new Set(['openai-whisper', 'deepgram']);
+        let deepgramKey = null;
+        let finalTranscript = '';
+        let interimTranscript = '';
         
-        async function loadBackends() {
-            const resp = await fetch('/api/backends');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusEl = document.getElementById('status');
+        const transcriptEl = document.getElementById('transcript');
+        
+        async function getDeepgramKey() {
+            if (deepgramKey) return deepgramKey;
+            const resp = await fetch('/api/deepgram-key');
+            if (!resp.ok) throw new Error('Failed to get API key');
             const data = await resp.json();
-            // Auto-select all available backends
-            selectedBackends = new Set(data.backends.filter(b => b.available).map(b => b.id));
+            deepgramKey = data.key;
+            return deepgramKey;
         }
         
-        document.getElementById('recordBtn').onclick = async function() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                this.textContent = 'Start Recording';
-                this.classList.remove('recording');
-                document.getElementById('status').textContent = '';
-                document.getElementById('status').className = 'status';
-            } else {
-                try {
-                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                        throw new Error('Microphone access requires HTTPS or localhost');
-                    }
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const url = URL.createObjectURL(audioBlob);
-                        document.getElementById('audioPlayback').src = url;
-                        document.getElementById('audioPlayback').style.display = 'block';
-                        document.getElementById('transcribeBtn').disabled = false;
-                        stream.getTracks().forEach(t => t.stop());
-                    };
-                    
-                    mediaRecorder.start();
-                    this.textContent = 'Stop Recording';
-                    this.classList.add('recording');
-                    document.getElementById('status').textContent = 'Recording...';
-                    document.getElementById('status').className = 'status recording';
-                } catch (err) {
-                    alert('Microphone error: ' + err.message + '\n\nMake sure you are using http://localhost:8000 and allow microphone access.');
-                    console.error('Microphone error:', err);
-                }
-            }
-        };
+        function updateTranscript() {
+            transcriptEl.innerHTML = finalTranscript + 
+                (interimTranscript ? `<span class="interim">${interimTranscript}</span>` : '');
+            transcriptEl.parentElement.scrollTop = transcriptEl.parentElement.scrollHeight;
+        }
         
-        document.getElementById('audioFile').onchange = function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                audioBlob = file;
-                document.getElementById('fileName').textContent = file.name;
-                const url = URL.createObjectURL(file);
-                document.getElementById('audioPlayback').src = url;
-                document.getElementById('audioPlayback').style.display = 'block';
-                document.getElementById('transcribeBtn').disabled = false;
-            }
-        };
-        
-        document.getElementById('transcribeBtn').onclick = async function() {
-            if (!audioBlob || selectedBackends.size === 0) return;
-            
-            this.disabled = true;
-            document.getElementById('status').textContent = 'Transcribing...';
-            document.getElementById('status').className = 'status processing';
-            document.getElementById('results').innerHTML = '';
-            
-            const backends = Array.from(selectedBackends);
-            
-            // Create all result cards first
-            const cards = backends.map(backend => {
-                const resultCard = document.createElement('div');
-                resultCard.className = 'result-card';
-                resultCard.innerHTML = `<div class="result-header"><span class="result-backend">${backend}</span><span class="result-time">Processing...</span></div><div class="result-text">...</div>`;
-                document.getElementById('results').appendChild(resultCard);
-                return { backend, card: resultCard };
-            });
-            
-            // Run all transcriptions in parallel
-            await Promise.all(cards.map(async ({ backend, card }) => {
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'recording.webm');
-                formData.append('backend', backend);
+        startBtn.onclick = async function() {
+            try {
+                statusEl.textContent = 'Connecting...';
+                statusEl.className = 'status connecting';
+                startBtn.disabled = true;
                 
-                const startTime = Date.now();
-                try {
-                    const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
-                    const data = await resp.json();
-                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-                    
-                    card.querySelector('.result-time').textContent = `${elapsed}s`;
-                    if (data.error) {
-                        card.querySelector('.result-text').innerHTML = `<span class="result-error">${data.error}</span>`;
-                    } else {
-                        card.querySelector('.result-text').textContent = data.text;
+                const key = await getDeepgramKey();
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 16000,
+                        echoCancellation: true,
+                        noiseSuppression: true
                     }
-                } catch (err) {
-                    card.querySelector('.result-text').innerHTML = `<span class="result-error">Error: ${err.message}</span>`;
-                }
-            }));
-            
-            this.disabled = false;
-            document.getElementById('status').textContent = '';
-            document.getElementById('status').className = 'status';
+                });
+                
+                socket = new WebSocket(
+                    `wss://api.deepgram.com/v1/listen?model=nova-2-medical&punctuate=true&smart_format=true&interim_results=true`,
+                    ['token', key]
+                );
+                
+                socket.onopen = () => {
+                    statusEl.textContent = 'Listening...';
+                    statusEl.className = 'status listening';
+                    stopBtn.disabled = false;
+                    
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                    mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                            socket.send(e.data);
+                        }
+                    };
+                    mediaRecorder.start(250);
+                };
+                
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const transcript = data.channel?.alternatives?.[0]?.transcript || '';
+                    
+                    if (transcript) {
+                        if (data.is_final) {
+                            finalTranscript += transcript + ' ';
+                            interimTranscript = '';
+                        } else {
+                            interimTranscript = transcript;
+                        }
+                        updateTranscript();
+                    }
+                };
+                
+                socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    statusEl.textContent = 'Connection error';
+                    statusEl.className = 'status error';
+                    stopRecording(stream);
+                };
+                
+                socket.onclose = () => {
+                    stopRecording(stream);
+                };
+                
+            } catch (err) {
+                console.error('Error:', err);
+                statusEl.textContent = 'Error: ' + err.message;
+                statusEl.className = 'status error';
+                startBtn.disabled = false;
+            }
         };
         
-        loadBackends();
+        function stopRecording(stream) {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+            }
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusEl.textContent = '';
+            statusEl.className = 'status';
+            interimTranscript = '';
+            updateTranscript();
+        }
+        
+        stopBtn.onclick = function() {
+            stopRecording(mediaRecorder?.stream);
+        };
+        
+        document.getElementById('copyBtn').onclick = function() {
+            navigator.clipboard.writeText(finalTranscript.trim()).then(() => {
+                this.textContent = 'Copied!';
+                setTimeout(() => this.textContent = 'Copy Text', 2000);
+            });
+        };
+        
+        document.getElementById('clearBtn').onclick = function() {
+            finalTranscript = '';
+            interimTranscript = '';
+            updateTranscript();
+        };
     </script>
 </body>
 </html>
