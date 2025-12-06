@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radiology Transcription Tool</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .backend-select {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .backend-btn {
+            padding: 10px 16px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .backend-btn:hover { border-color: #007bff; }
+        .backend-btn.selected {
+            border-color: #007bff;
+            background: #e7f1ff;
+        }
+        .backend-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .record-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-record {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-record:hover { background: #c82333; }
+        .btn-record.recording {
+            animation: pulse 1s infinite;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status.recording { background: #ffe0e0; color: #c00; }
+        .status.processing { background: #fff3cd; color: #856404; }
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 700px) {
+            .results { grid-template-columns: 1fr; }
+        }
+        .result-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-backend {
+            font-weight: 600;
+            color: #333;
+        }
+        .result-time {
+            font-size: 12px;
+            color: #666;
+        }
+        .result-text {
+            white-space: pre-wrap;
+            line-height: 1.6;
+            color: #444;
+        }
+        .result-error {
+            color: #dc3545;
+        }
+        .upload-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .upload-section input[type="file"] {
+            margin-right: 10px;
+        }
+        .compare-note {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Radiology Transcription Tool</h1>
+    <p style="color: #666; margin-top: -10px;">Compare cloud speech-to-text services for medical dictation</p>
+    
+    
+    
+    <div class="card">
+        <h3>Record or Upload Audio</h3>
+        <div class="record-section">
+            <button class="btn btn-record" id="recordBtn">Start Recording</button>
+            <button class="btn btn-primary" id="transcribeBtn" disabled>Compare Transcriptions</button>
+            <span class="status" id="status"></span>
+        </div>
+        <div class="upload-section">
+            <input type="file" id="audioFile" accept="audio/*">
+            <span id="fileName"></span>
+        </div>
+        <audio id="audioPlayback" controls style="width: 100%; margin-top: 15px; display: none;"></audio>
+    </div>
+    
+    <div class="card">
+        <h3>Results</h3>
+        <div class="results" id="results">
+            <p style="color: #666;">Record or upload audio and click Transcribe to see results.</p>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioBlob = null;
+        let selectedBackends = new Set(['openai-whisper', 'deepgram']);
+        
+        async function loadBackends() {
+            const resp = await fetch('/api/backends');
+            const data = await resp.json();
+            // Auto-select all available backends
+            selectedBackends = new Set(data.backends.filter(b => b.available).map(b => b.id));
+        }
+        
+        document.getElementById('recordBtn').onclick = async function() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                this.textContent = 'Start Recording';
+                this.classList.remove('recording');
+                document.getElementById('status').textContent = '';
+                document.getElementById('status').className = 'status';
+            } else {
+                try {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error('Microphone access requires HTTPS or localhost');
+                    }
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(audioBlob);
+                        document.getElementById('audioPlayback').src = url;
+                        document.getElementById('audioPlayback').style.display = 'block';
+                        document.getElementById('transcribeBtn').disabled = false;
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    this.textContent = 'Stop Recording';
+                    this.classList.add('recording');
+                    document.getElementById('status').textContent = 'Recording...';
+                    document.getElementById('status').className = 'status recording';
+                } catch (err) {
+                    alert('Microphone error: ' + err.message + '\n\nMake sure you are using http://localhost:8000 and allow microphone access.');
+                    console.error('Microphone error:', err);
+                }
+            }
+        };
+        
+        document.getElementById('audioFile').onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                audioBlob = file;
+                document.getElementById('fileName').textContent = file.name;
+                const url = URL.createObjectURL(file);
+                document.getElementById('audioPlayback').src = url;
+                document.getElementById('audioPlayback').style.display = 'block';
+                document.getElementById('transcribeBtn').disabled = false;
+            }
+        };
+        
+        document.getElementById('transcribeBtn').onclick = async function() {
+            if (!audioBlob || selectedBackends.size === 0) return;
+            
+            this.disabled = true;
+            document.getElementById('status').textContent = 'Transcribing...';
+            document.getElementById('status').className = 'status processing';
+            document.getElementById('results').innerHTML = '';
+            
+            const backends = Array.from(selectedBackends);
+            
+            // Create all result cards first
+            const cards = backends.map(backend => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'result-card';
+                resultCard.innerHTML = `<div class="result-header"><span class="result-backend">${backend}</span><span class="result-time">Processing...</span></div><div class="result-text">...</div>`;
+                document.getElementById('results').appendChild(resultCard);
+                return { backend, card: resultCard };
+            });
+            
+            // Run all transcriptions in parallel
+            await Promise.all(cards.map(async ({ backend, card }) => {
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'recording.webm');
+                formData.append('backend', backend);
+                
+                const startTime = Date.now();
+                try {
+                    const resp = await fetch('/api/transcribe', { method: 'POST', body: formData });
+                    const data = await resp.json();
+                    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                    
+                    card.querySelector('.result-time').textContent = `${elapsed}s`;
+                    if (data.error) {
+                        card.querySelector('.result-text').innerHTML = `<span class="result-error">${data.error}</span>`;
+                    } else {
+                        card.querySelector('.result-text').textContent = data.text;
+                    }
+                } catch (err) {
+                    card.querySelector('.result-text').innerHTML = `<span class="result-error">Error: ${err.message}</span>`;
+                }
+            }));
+            
+            this.disabled = false;
+            document.getElementById('status').textContent = '';
+            document.getElementById('status').className = 'status';
+        };
+        
+        loadBackends();
+    </script>
+</body>
+</html>
