@@ -35,6 +35,12 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
+@app.get("/health")
+async def health():
+    """Health check endpoint (no auth required)."""
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def root(username: str = Depends(verify_credentials)):
     if MAINTENANCE_MODE:
