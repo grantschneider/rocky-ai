@@ -8,12 +8,13 @@
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 900px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
             background: #f5f5f5;
         }
         h1 { color: #333; margin: 0; }
+        h3 { color: #333; margin: 0 0 15px 0; }
         .header {
             display: flex;
             align-items: center;
@@ -39,10 +40,10 @@
             flex-wrap: wrap;
         }
         .btn {
-            padding: 14px 32px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -58,18 +59,23 @@
         }
         .btn-stop:hover { background: #c82333; }
         .btn:disabled {
-            background: #ccc;
+            background: #ccc !important;
             cursor: not-allowed;
         }
-        .btn-clear {
-            padding: 10px 20px;
+        .btn-secondary {
+            padding: 8px 16px;
             background: #6c757d;
             color: white;
             font-size: 14px;
         }
-        .btn-clear:hover { background: #5a6268; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover { background: #0056b3; }
         .btn-copy {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background: #17a2b8;
             color: white;
             font-size: 14px;
@@ -86,7 +92,7 @@
             color: #155724;
             animation: pulse 2s infinite;
         }
-        .status.connecting {
+        .status.connecting, .status.generating {
             background: #fff3cd;
             color: #856404;
         }
@@ -98,34 +104,82 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
         }
-        .transcript-container {
-            min-height: 300px;
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 800px) {
+            .two-column { grid-template-columns: 1fr; }
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .section-label {
+            font-size: 12px;
+            color: #666;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .text-container {
+            min-height: 350px;
             max-height: 500px;
             overflow-y: auto;
             border: 2px solid #e9ecef;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             background: #fafafa;
         }
-        .transcript {
-            font-size: 18px;
-            line-height: 1.8;
+        .text-content {
+            font-size: 15px;
+            line-height: 1.7;
             color: #333;
             white-space: pre-wrap;
+            font-family: inherit;
         }
-        .transcript .interim {
+        .text-content .interim {
             color: #888;
             font-style: italic;
         }
-        .transcript:empty::before {
-            content: "Start speaking to see transcription appear here...";
+        .text-content:empty::before {
+            content: attr(data-placeholder);
             color: #aaa;
             font-style: italic;
+        }
+        .report-content {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .report-content .section-title {
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 12px;
+        }
+        .report-content .section-title:first-child {
+            margin-top: 0;
         }
         .actions {
             display: flex;
             gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .format-badge {
+            font-size: 11px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .generate-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
             margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
         }
     </style>
 </head>
@@ -134,7 +188,7 @@
         <img src="/static/logo.png" alt="Logo">
         <div>
             <h1>Radiology Transcription</h1>
-            <p style="color: #666; margin: 5px 0 0 0;">Real-time medical speech-to-text</p>
+            <p style="color: #666; margin: 5px 0 0 0;">Real-time medical speech-to-text with report formatting</p>
         </div>
     </div>
     
@@ -144,15 +198,38 @@
             <button class="btn btn-stop" id="stopBtn" disabled>Stop</button>
             <span class="status" id="status"></span>
         </div>
+        <div class="generate-section">
+            <button class="btn btn-primary" id="generateBtn" disabled>Generate Report</button>
+            <span class="status" id="generateStatus"></span>
+        </div>
     </div>
     
-    <div class="card">
-        <div class="transcript-container">
-            <div class="transcript" id="transcript"></div>
+    <div class="two-column">
+        <div class="card">
+            <div class="section-header">
+                <h3>Raw Transcription</h3>
+                <span class="section-label">Live dictation</span>
+            </div>
+            <div class="text-container">
+                <div class="text-content" id="transcript" data-placeholder="Start dictation to see transcription here..."></div>
+            </div>
+            <div class="actions">
+                <button class="btn btn-copy" id="copyTranscript">Copy</button>
+                <button class="btn btn-secondary" id="clearBtn">Clear</button>
+            </div>
         </div>
-        <div class="actions">
-            <button class="btn btn-copy" id="copyBtn">Copy Text</button>
-            <button class="btn btn-clear" id="clearBtn">Clear</button>
+        
+        <div class="card">
+            <div class="section-header">
+                <h3>Formatted Report</h3>
+                <span class="section-label" id="formatLabel">Standard Radiology Report (ACR Guidelines)</span>
+            </div>
+            <div class="text-container">
+                <div class="text-content report-content" id="report" data-placeholder="Click 'Generate Report' after dictation to format your transcript..."></div>
+            </div>
+            <div class="actions">
+                <button class="btn btn-copy" id="copyReport" disabled>Copy Report</button>
+            </div>
         </div>
     </div>
 
@@ -165,8 +242,11 @@
         
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const generateBtn = document.getElementById('generateBtn');
         const statusEl = document.getElementById('status');
+        const generateStatusEl = document.getElementById('generateStatus');
         const transcriptEl = document.getElementById('transcript');
+        const reportEl = document.getElementById('report');
         
         async function getDeepgramKey() {
             if (deepgramKey) return deepgramKey;
@@ -181,6 +261,12 @@
             transcriptEl.innerHTML = finalTranscript + 
                 (interimTranscript ? `<span class="interim">${interimTranscript}</span>` : '');
             transcriptEl.parentElement.scrollTop = transcriptEl.parentElement.scrollHeight;
+            generateBtn.disabled = !finalTranscript.trim();
+        }
+        
+        function formatReportDisplay(text) {
+            return text.replace(/^(CLINICAL INDICATION:|TECHNIQUE:|COMPARISON:|FINDINGS:|IMPRESSION:)/gm, 
+                '<span class="section-title">$1</span>');
         }
         
         startBtn.onclick = async function() {
@@ -275,10 +361,52 @@
             stopRecording(mediaRecorder?.stream);
         };
         
-        document.getElementById('copyBtn').onclick = function() {
+        generateBtn.onclick = async function() {
+            if (!finalTranscript.trim()) return;
+            
+            generateBtn.disabled = true;
+            generateStatusEl.textContent = 'Generating report...';
+            generateStatusEl.className = 'status generating';
+            
+            try {
+                const resp = await fetch('/api/generate-report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transcript: finalTranscript.trim() })
+                });
+                
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Failed to generate report');
+                }
+                
+                const data = await resp.json();
+                reportEl.innerHTML = formatReportDisplay(data.report);
+                document.getElementById('formatLabel').textContent = data.format;
+                document.getElementById('copyReport').disabled = false;
+                generateStatusEl.textContent = '';
+                generateStatusEl.className = 'status';
+            } catch (err) {
+                console.error('Error:', err);
+                generateStatusEl.textContent = 'Error: ' + err.message;
+                generateStatusEl.className = 'status error';
+            }
+            
+            generateBtn.disabled = false;
+        };
+        
+        document.getElementById('copyTranscript').onclick = function() {
             navigator.clipboard.writeText(finalTranscript.trim()).then(() => {
                 this.textContent = 'Copied!';
-                setTimeout(() => this.textContent = 'Copy Text', 2000);
+                setTimeout(() => this.textContent = 'Copy', 2000);
+            });
+        };
+        
+        document.getElementById('copyReport').onclick = function() {
+            const reportText = reportEl.innerText;
+            navigator.clipboard.writeText(reportText).then(() => {
+                this.textContent = 'Copied!';
+                setTimeout(() => this.textContent = 'Copy Report', 2000);
             });
         };
         
@@ -286,6 +414,8 @@
             finalTranscript = '';
             interimTranscript = '';
             updateTranscript();
+            reportEl.innerHTML = '';
+            document.getElementById('copyReport').disabled = true;
         };
     </script>
 </body>
