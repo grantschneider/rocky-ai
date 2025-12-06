@@ -62,6 +62,13 @@ class ReportRequest(BaseModel):
     transcript: str
 
 
+class FeedbackRequest(BaseModel):
+    rating: str
+    comment: str
+    transcript: str
+    report: str
+
+
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, AUTH_USERNAME)
     correct_password = secrets.compare_digest(credentials.password, AUTH_PASSWORD)
@@ -146,3 +153,27 @@ async def generate_report(request: ReportRequest, username: str = Depends(verify
         raise HTTPException(status_code=504, detail="Request timed out")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/feedback")
+async def submit_feedback(request: FeedbackRequest, username: str = Depends(verify_credentials)):
+    """Store user feedback on generated reports."""
+    import json
+    from datetime import datetime
+    
+    feedback_dir = Path(__file__).parent.parent / "feedback"
+    feedback_dir.mkdir(exist_ok=True)
+    
+    feedback_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "rating": request.rating,
+        "comment": request.comment,
+        "transcript": request.transcript[:500],  # Truncate for storage
+        "report": request.report[:1000],  # Truncate for storage
+    }
+    
+    feedback_file = feedback_dir / "feedback.jsonl"
+    with open(feedback_file, "a") as f:
+        f.write(json.dumps(feedback_entry) + "\n")
+    
+    return {"status": "ok"}

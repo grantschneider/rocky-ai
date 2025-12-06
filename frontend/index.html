@@ -181,6 +181,88 @@
             padding-top: 15px;
             border-top: 1px solid #e9ecef;
         }
+        .feedback-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+            display: none;
+        }
+        .feedback-section.visible {
+            display: block;
+        }
+        .feedback-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .feedback-btn {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+        }
+        .feedback-btn:hover {
+            border-color: #999;
+        }
+        .feedback-btn.selected-up {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .feedback-btn.selected-down {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .feedback-text {
+            margin-top: 12px;
+            display: none;
+        }
+        .feedback-text.visible {
+            display: block;
+        }
+        .feedback-text textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        .feedback-text textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .feedback-label {
+            font-size: 14px;
+            color: #666;
+            margin-right: 10px;
+        }
+        .feedback-thanks {
+            color: #28a745;
+            font-size: 14px;
+            margin-left: 10px;
+            display: none;
+        }
+        .feedback-thanks.visible {
+            display: inline;
+        }
+        .feedback-submit {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .feedback-submit:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -229,6 +311,18 @@
             </div>
             <div class="actions">
                 <button class="btn btn-copy" id="copyReport" disabled>Copy Report</button>
+            </div>
+            <div class="feedback-section" id="feedbackSection">
+                <div class="feedback-buttons">
+                    <span class="feedback-label">How was this report?</span>
+                    <button class="feedback-btn" id="thumbsUp" title="Good">👍</button>
+                    <button class="feedback-btn" id="thumbsDown" title="Needs improvement">👎</button>
+                    <span class="feedback-thanks" id="feedbackThanks">Thanks for your feedback!</span>
+                </div>
+                <div class="feedback-text" id="feedbackText">
+                    <textarea id="feedbackInput" placeholder="What could be improved? (e.g., wrong format, missing sections, incorrect terminology...)"></textarea>
+                    <button class="feedback-submit" id="feedbackSubmit">Submit Feedback</button>
+                </div>
             </div>
         </div>
     </div>
@@ -386,6 +480,7 @@
                 document.getElementById('copyReport').disabled = false;
                 generateStatusEl.textContent = '';
                 generateStatusEl.className = 'status';
+                showFeedback();
             } catch (err) {
                 console.error('Error:', err);
                 generateStatusEl.textContent = 'Error: ' + err.message;
@@ -416,7 +511,60 @@
             updateTranscript();
             reportEl.innerHTML = '';
             document.getElementById('copyReport').disabled = true;
+            hideFeedback();
         };
+        
+        function showFeedback() {
+            document.getElementById('feedbackSection').classList.add('visible');
+            document.getElementById('feedbackThanks').classList.remove('visible');
+            document.getElementById('feedbackText').classList.remove('visible');
+            document.getElementById('thumbsUp').classList.remove('selected-up');
+            document.getElementById('thumbsDown').classList.remove('selected-down');
+            document.getElementById('feedbackInput').value = '';
+        }
+        
+        function hideFeedback() {
+            document.getElementById('feedbackSection').classList.remove('visible');
+        }
+        
+        document.getElementById('thumbsUp').onclick = function() {
+            this.classList.add('selected-up');
+            document.getElementById('thumbsDown').classList.remove('selected-down');
+            document.getElementById('feedbackText').classList.remove('visible');
+            document.getElementById('feedbackThanks').classList.add('visible');
+            saveFeedback('positive', '');
+        };
+        
+        document.getElementById('thumbsDown').onclick = function() {
+            this.classList.add('selected-down');
+            document.getElementById('thumbsUp').classList.remove('selected-up');
+            document.getElementById('feedbackText').classList.add('visible');
+            document.getElementById('feedbackThanks').classList.remove('visible');
+        };
+        
+        document.getElementById('feedbackSubmit').onclick = function() {
+            const feedback = document.getElementById('feedbackInput').value.trim();
+            saveFeedback('negative', feedback);
+            document.getElementById('feedbackText').classList.remove('visible');
+            document.getElementById('feedbackThanks').classList.add('visible');
+        };
+        
+        async function saveFeedback(rating, comment) {
+            try {
+                await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rating,
+                        comment,
+                        transcript: finalTranscript.trim(),
+                        report: reportEl.innerText
+                    })
+                });
+            } catch (err) {
+                console.error('Failed to save feedback:', err);
+            }
+        }
     </script>
 </body>
 </html>
