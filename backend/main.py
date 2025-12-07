@@ -141,7 +141,15 @@ async def transcribe_chunk(audio: UploadFile = File(...), username: str = Depend
                 return {"text": "", "error": f"Whisper API error: {resp.status_code}"}
             
             result = resp.json()
-            return {"text": result.get("text", "").strip()}
+            text = result.get("text", "").strip()
+            
+            # Handle dictation commands
+            import re
+            # "new paragraph" or "new line" -> actual line breaks
+            text = re.sub(r'\b[Nn]ew [Pp]aragraph\b', '\n\n', text)
+            text = re.sub(r'\b[Nn]ew [Ll]ine\b', '\n', text)
+            
+            return {"text": text}
     except Exception as e:
         return {"text": "", "error": str(e)}
     finally:
