@@ -102,12 +102,51 @@ async def root(username: str = Depends(verify_credentials)):
     return {"message": "Frontend not found"}
 
 
-@app.get("/api/deepgram-key")
-async def get_deepgram_key(username: str = Depends(verify_credentials)):
-    """Return Deepgram API key for client-side streaming."""
-    if not DEEPGRAM_API_KEY:
-        raise HTTPException(status_code=500, detail="Deepgram API key not configured")
-    return {"key": DEEPGRAM_API_KEY}
+from fastapi import UploadFile, File
+import tempfile
+
+@app.post("/api/transcribe-chunk")
+async def transcribe_chunk(audio: UploadFile = File(...), username: str = Depends(verify_credentials)):
+    """Transcribe an audio chunk using OpenAI Whisper API."""
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
+    # Save uploaded audio to temp file
+    suffix = ".webm"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await audio.read()
+        if len(content) < 1000:  # Too small, likely silence
+            return {"text": ""}
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with open(tmp_path, "rb") as f:
+                files = {"file": ("audio.webm", f, "audio/webm")}
+                data = {
+                    "model": "whisper-1",
+                    "language": "en",
+                    "prompt": "Radiology dictation with medical terminology: bilateral, inferior, superior, anterior, posterior, medial, lateral, proximal, distal, carcinoma, metastasis, lesion, nodule, opacity, effusion, atelectasis, consolidation, pneumothorax, cardiomegaly, hepatomegaly, splenomegaly."
+                }
+                
+                resp = await client.post(
+                    "https://api.openai.com/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                    files=files,
+                    data=data,
+                )
+            
+            if resp.status_code != 200:
+                return {"text": "", "error": f"Whisper API error: {resp.status_code}"}
+            
+            result = resp.json()
+            return {"text": result.get("text", "").strip()}
+    except Exception as e:
+        return {"text": "", "error": str(e)}
+    finally:
+        import os as os_module
+        os_module.unlink(tmp_path)
 
 
 @app.post("/api/generate-report")

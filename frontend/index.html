@@ -514,11 +514,13 @@
     </div>
 
     <script>
-        let socket = null;
         let mediaRecorder = null;
-        let deepgramKey = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let chunkInterval = null;
+        let currentStream = null;
         let finalTranscript = '';
-        let interimTranscript = '';
+        let pendingTranscription = '';
         
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
@@ -528,18 +530,11 @@
         const transcriptEl = document.getElementById('transcript');
         const reportEl = document.getElementById('report');
         
-        async function getDeepgramKey() {
-            if (deepgramKey) return deepgramKey;
-            const resp = await fetch('/api/deepgram-key');
-            if (!resp.ok) throw new Error('Failed to get API key');
-            const data = await resp.json();
-            deepgramKey = data.key;
-            return deepgramKey;
-        }
+        const CHUNK_INTERVAL_MS = 4000; // Send audio every 4 seconds
         
         function updateTranscript() {
             transcriptEl.innerHTML = finalTranscript + 
-                (interimTranscript ? `<span class="interim">${interimTranscript}</span>` : '');
+                (pendingTranscription ? `<span class="interim">${pendingTranscription}</span>` : '');
             transcriptEl.parentElement.scrollTop = transcriptEl.parentElement.scrollHeight;
             generateBtn.disabled = !finalTranscript.trim();
         }
@@ -549,13 +544,45 @@
                 '<span class="section-title">$1</span>');
         }
         
+        async function sendChunkForTranscription() {
+            if (audioChunks.length === 0) return;
+            
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = []; // Clear for next chunk
+            
+            if (blob.size < 1000) return; // Skip tiny chunks
+            
+            pendingTranscription = '...';
+            updateTranscript();
+            
+            const formData = new FormData();
+            formData.append('audio', blob, 'chunk.webm');
+            
+            try {
+                const resp = await fetch('/api/transcribe-chunk', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.text) {
+                        finalTranscript += data.text + ' ';
+                    }
+                }
+            } catch (err) {
+                console.error('Transcription error:', err);
+            }
+            
+            pendingTranscription = '';
+            updateTranscript();
+        }
+        
         startBtn.onclick = async function() {
             try {
-                statusEl.textContent = 'Connecting...';
+                statusEl.textContent = 'Starting...';
                 statusEl.className = 'status connecting';
                 startBtn.disabled = true;
-                
-                const key = await getDeepgramKey();
                 
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
@@ -566,50 +593,26 @@
                     }
                 });
                 
-                socket = new WebSocket(
-                    `wss://api.deepgram.com/v1/listen?model=nova-2-medical&punctuate=true&smart_format=true&interim_results=true`,
-                    ['token', key]
-                );
+                currentStream = stream;
+                isRecording = true;
+                audioChunks = [];
                 
-                socket.onopen = () => {
-                    statusEl.textContent = 'Listening...';
-                    statusEl.className = 'status listening';
-                    stopBtn.disabled = false;
-                    
-                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                    mediaRecorder.ondataavailable = (e) => {
-                        if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-                            socket.send(e.data);
-                        }
-                    };
-                    mediaRecorder.start(250);
-                };
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 
-                socket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    const transcript = data.channel?.alternatives?.[0]?.transcript || '';
-                    
-                    if (transcript) {
-                        if (data.is_final) {
-                            finalTranscript += transcript + ' ';
-                            interimTranscript = '';
-                        } else {
-                            interimTranscript = transcript;
-                        }
-                        updateTranscript();
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.push(e.data);
                     }
                 };
                 
-                socket.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    statusEl.textContent = 'Connection error';
-                    statusEl.className = 'status error';
-                    stopRecording(stream);
-                };
+                mediaRecorder.start(500); // Collect data every 500ms
                 
-                socket.onclose = () => {
-                    stopRecording(stream);
-                };
+                // Send chunks periodically for transcription
+                chunkInterval = setInterval(sendChunkForTranscription, CHUNK_INTERVAL_MS);
+                
+                statusEl.textContent = 'Listening...';
+                statusEl.className = 'status listening';
+                stopBtn.disabled = false;
                 
             } catch (err) {
                 console.error('Error:', err);
@@ -619,27 +622,39 @@
             }
         };
         
-        function stopRecording(stream) {
+        async function stopRecording() {
+            isRecording = false;
+            
+            if (chunkInterval) {
+                clearInterval(chunkInterval);
+                chunkInterval = null;
+            }
+            
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
             }
-            if (stream) {
-                stream.getTracks().forEach(t => t.stop());
+            
+            // Transcribe any remaining audio
+            if (audioChunks.length > 0) {
+                statusEl.textContent = 'Finishing...';
+                statusEl.className = 'status connecting';
+                await sendChunkForTranscription();
             }
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.close();
+            
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
             }
+            
             startBtn.disabled = false;
             stopBtn.disabled = true;
             statusEl.textContent = '';
             statusEl.className = 'status';
-            interimTranscript = '';
+            pendingTranscription = '';
             updateTranscript();
         }
         
-        stopBtn.onclick = function() {
-            stopRecording(mediaRecorder?.stream);
-        };
+        stopBtn.onclick = stopRecording;
         
         generateBtn.onclick = async function() {
             if (!finalTranscript.trim()) return;
